@@ -298,6 +298,32 @@ curl -i -X PATCH http://localhost:3000/api/v1/admin/bookings/BOOKING_ID/status \
 
 Create สำเร็จได้ 201 พร้อม Location; ดู/ยกเลิกได้ 200 Owner route ตรวจเจ้าของก่อน: ส่งสถานะที่รู้จักนอกจาก CANCELLED ได้ 403 FORBIDDEN; ค่าสถานะไม่ถูกต้องได้ 400 VALIDATION_ERROR การใช้ ID ของคนอื่นผ่าน Owner route ได้ 404 และการจองทับซ้อนได้ 409 ROOM_UNAVAILABLE การอนุมัติ/บันทึก PAID ใช้ได้ถึงวันเช็กอินและไม่สร้าง Notification ส่วนการยกเลิกสร้าง BOOKING_CANCELLED ให้เจ้าของเพียงครั้งเดียว
 
+## Search / Infrastructure — Sprint 3 (PR #7)
+
+Search ใช้กติกาวันทับซ้อนเดียวกับ Bookings และอ่านฐานข้อมูลทุกครั้ง ส่วน Public list/detail ของ Rooms เก็บ Redis cache 60 วินาที ใช้ version ใหม่หลัง Admin สร้าง แก้ไข ปิดใช้งาน หรือลบห้อง Admin list/detail อ่านฐานข้อมูลโดยตรง
+
+`GET /health` เป็น public endpoint นอก prefix `/api/v1` ตรวจทั้ง MySQL และ Redis: ปกติคืน 200 และบริการใดไม่พร้อมคืน 503 โดยไม่แสดงรายละเอียดการเชื่อมต่อ ยกเว้น rate limiting เฉพาะ endpoint นี้เพื่อให้รายงาน Redis ล่มได้
+
+การรันด้วย Production Compose:
+
+```bash
+cp deploy/production.env.example /tmp/hotel-production.env
+# แก้ค่ารหัสผ่านจริงทั้งหมด รวม JWT_SECRET และ URL ให้ตรงกับ service
+# DATABASE_URL ใช้ host mysql และ REDIS_URL ใช้ host redis
+# URL-encode รหัสผ่านใน URL; MYSQL_PASSWORD/REDIS_PASSWORD ใช้ค่าจริง
+# ป้องกันไฟล์นี้และอย่า commit กลับเข้า repository
+chmod 600 /tmp/hotel-production.env
+docker compose --env-file /tmp/hotel-production.env -f docker-compose.prod.yml up -d --build --wait
+curl -i http://localhost:3000/health
+docker compose --env-file /tmp/hotel-production.env -f docker-compose.prod.yml stop
+```
+
+Dockerfile สร้างแอปด้วย Node 22 และ Prisma Client แล้วรันด้วย user `node` โดยทำ `prisma migrate deploy` ก่อนเปิด API ใช้ volume เก็บ MySQL และไม่เปิดพอร์ต MySQL/Redis ออกนอก Compose การทดสอบเริ่มจากฐานข้อมูลว่างทำได้โดย migration โดยไม่จำเป็นต้อง seed
+
+สำหรับ Railway ให้เชื่อม repository ด้วยบัญชี GitHub เจ้าของ repo ตั้ง environment จริงจาก template โดยใช้ URL ของ MySQL/Redis บน platform และกำหนด healthcheck path เป็น `/health` ตรวจ proxy ที่ใช้งานจริงก่อนตั้ง `TRUST_PROXY` ให้เชื่อถือ address/CIDR ที่จำเป็น หลัง deploy ต้องลอง Register → Login → Profile และ Search → Booking → Status/Cancel → Notifications ผ่าน URL จริงอีกครั้ง
+
+สถานะตรวจรวมในเครื่อง: Unit/E2E ผ่านตามตารางด้านล่าง การทดสอบบน Railway และหลักฐาน URL สาธารณะยังรอดำเนินการ จึงยังไม่ถือว่าปิด Sprint 3
+
 ## Security — Sprint 3 (คนที่ 1)
 
 ### Rate limiting
@@ -432,10 +458,18 @@ E2E ครอบคลุมจองพร้อมกัน, วันพั�
 
 | การตรวจ | ผล |
 | --- | --- |
-| `npm test -- --runInBand` | 16 suites, 136 tests ผ่าน |
-| `npm run test:e2e -- --runInBand` | 9 suites, 89 tests ผ่าน |
+| `npm test -- --runInBand` | 16 suites, 142 tests ผ่าน |
+| `npm run test:e2e -- --runInBand` | 10 suites, 93 tests ผ่าน |
 | TypeScript, Build และ ESLint | ผ่าน |
 | Production-mode smoke ในเครื่อง | 2 Node processes ใช้ MySQL/Redis แยก; Admin/JWT/Profile/Logout และโควตาร่วมกันผ่าน |
+| Production Docker/Compose | Build image, migrate DB ว่าง, Health/Swagger, Register/Login/Profile, เปลี่ยน API container แล้วยังอ่านข้อมูลเดิมได้ และปิด Redis แล้ว Health คืน 503 ผ่าน |
+
+ข้อที่ยังต้องปิดก่อนจบ Sprint 3:
+
+- ให้บัญชี GitHub เจ้าของ `Shogun032/Backend-Project` ตรวจสิทธิ์ Railway GitHub App เฉพาะ repository นี้ (browser ที่ใช้ตรวจล็อกอินเป็น `Poonyaphat-P` และไม่มี Railway App ติดตั้งไว้)
+- Deploy และบันทึก URL สาธารณะ ทดสอบ Auth/Profile, Search/Booking/Status/Cancel/Notifications, migration และ IP/rate limiting หลัง proxy จริง
+- ยืนยันหลักฐานการตรวจโค้ดเพื่อนอย่างน้อยคนละหนึ่งโมดูล
+- ตรวจ dependency advisories: `npm audit --omit=dev` วันที่ 15 พ.ย. 2026 รายงาน 7 package entries (5 high, 2 moderate; ไม่ใช่ช่องโหว่แยก 7 เรื่อง) ได้แก่เส้นทาง Multer, js-yaml และ deepmerge-ts ผ่าน Prisma CLI ที่อยู่ใน runtime image ปัจจุบัน ยังไม่ได้อัปเกรดข้ามรุ่นใหญ่หรือยืนยันผลกระทบจริงต่อ endpoints ในการรวม PR นี้
 
 ผลนี้รวม production mode ในเครื่อง แต่ยังไม่ใช่ผล Deploy บน public server ต้องตั้ง Secret จริง, ยืนยัน proxy/TLS และทดสอบ Authentication กับ URL จริงก่อนยืนยันงาน Deploy
 
@@ -664,3 +698,5 @@ API instances ต้องใช้ MySQL/Redis ที่ตั้งใจแ�
 - ทดสอบ Login/Profile/Admin/Logout และ Token ที่หมดอายุ/ถูกเพิกถอนผ่าน URL ภายนอก
 - ทดสอบ 429 และ Retry-After จาก client จริง และข้าม instance หากมีหลายตัว
 - คนที่ 2 จัดทำ production Dockerfile/Compose/Health check ตามงานทีม และบันทึกขั้นตอน Deploy จริง; โค้ดใน branch นี้ยังไม่ได้สร้างส่วนเหล่านั้นแทน
+
+อ้างอิงการตั้งค่า Railway: [GitHub service access](https://docs.railway.com/services), [Healthchecks](https://docs.railway.com/deployments/healthchecks)

@@ -80,4 +80,57 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
       await this.client.close();
     }
   }
+  // ---- Cache helpers: ถ้า Redis ล่ม ให้ข้าม cache แล้วไปอ่าน DB (ไม่ throw 503) ----
+  async getJson<T>(key: string): Promise<T | null> {
+    try {
+      if (!this.client.isReady) return null;
+      const raw = await this.client.get(key);
+      return raw ? (JSON.parse(raw) as T) : null;
+    } catch {
+      return null;
+    }
+  }
+
+  async setJson(
+    key: string,
+    value: unknown,
+    ttlSeconds: number,
+  ): Promise<void> {
+    try {
+      if (!this.client.isReady) return;
+      await this.client.set(key, JSON.stringify(value), {
+        expiration: { type: 'EX', value: ttlSeconds },
+      });
+    } catch {
+      // ข้ามได้ cache เป็นแค่ตัวช่วย
+    }
+  }
+
+  // ล้าง cache ด้วยการเพิ่มเลข version (key เก่าหมดอายุเองใน 60 วินาที)
+  async getCacheVersion(name: string): Promise<string> {
+    try {
+      if (!this.client.isReady) return '0';
+      return (await this.client.get(`cache:version:${name}`)) ?? '0';
+    } catch {
+      return '0';
+    }
+  }
+
+  async bumpCacheVersion(name: string): Promise<void> {
+    try {
+      if (!this.client.isReady) return;
+      await this.client.incr(`cache:version:${name}`);
+    } catch {
+      // ข้ามได้
+    }
+  }
+
+  async ping(): Promise<boolean> {
+    try {
+      if (!this.client.isReady) return false;
+      return (await this.client.ping()) === 'PONG';
+    } catch {
+      return false;
+    }
+  }
 }

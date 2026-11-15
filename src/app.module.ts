@@ -18,6 +18,7 @@ import { RoomsModule } from './rooms/rooms.module';
 import { BookingsModule } from './bookings/bookings.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { LoggingModule } from './common/logging/logging.module';
+import { HealthModule } from './health/health.module';
 
 @Module({
   imports: [
@@ -50,6 +51,7 @@ import { LoggingModule } from './common/logging/logging.module';
     BookingsModule,
     NotificationsModule,
     LoggingModule,
+    HealthModule,
   ],
   controllers: [AppController],
   providers: [
