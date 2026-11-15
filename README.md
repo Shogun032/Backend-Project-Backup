@@ -466,10 +466,14 @@ E2E ครอบคลุมจองพร้อมกัน, วันพั�
 
 ข้อที่ยังต้องปิดก่อนจบ Sprint 3:
 
-- ให้บัญชี GitHub เจ้าของ `Shogun032/Backend-Project` ตรวจสิทธิ์ Railway GitHub App เฉพาะ repository นี้ (browser ที่ใช้ตรวจล็อกอินเป็น `Poonyaphat-P` และไม่มี Railway App ติดตั้งไว้)
+- ให้บัญชี GitHub เจ้าของ `Shogun032/Backend-Project` ติดตั้ง/อนุญาต Railway GitHub App เฉพาะ repository นี้
 - Deploy และบันทึก URL สาธารณะ ทดสอบ Auth/Profile, Search/Booking/Status/Cancel/Notifications, migration และ IP/rate limiting หลัง proxy จริง
 - ยืนยันหลักฐานการตรวจโค้ดเพื่อนอย่างน้อยคนละหนึ่งโมดูล
-- ตรวจ dependency advisories: `npm audit --omit=dev` วันที่ 15 พ.ย. 2026 รายงาน 7 package entries (5 high, 2 moderate; ไม่ใช่ช่องโหว่แยก 7 เรื่อง) ได้แก่เส้นทาง Multer, js-yaml และ deepmerge-ts ผ่าน Prisma CLI ที่อยู่ใน runtime image ปัจจุบัน ยังไม่ได้อัปเกรดข้ามรุ่นใหญ่หรือยืนยันผลกระทบจริงต่อ endpoints ในการรวม PR นี้
+Dependency review วันที่ 15 พ.ย. 2026: อัปเดต NestJS เป็น 11.2.10, Swagger เป็น 11.4.8 และ override `deepmerge-ts@8.0.2` เฉพาะใต้ `@prisma/config` เพื่อแก้ advisory โดยยังใช้ Prisma 6.19.3 และ schema เดิม `npm audit --omit=dev` รายงาน 0 รายการ ทดสอบ Prisma config loader, generate, migration, Unit/E2E และ production Docker/Compose แล้ว เมื่อ Prisma รุ่นที่เข้ากันได้แก้ dependency นี้เอง ให้ทบทวนและถอด override
+
+Docker runtime ตัด devDependencies ออกด้วย `npm prune --omit=dev --ignore-scripts` แต่เก็บ Prisma CLI เป็น production dependency เพราะใช้ migrate ก่อนเปิด API คำสั่งเริ่มแอปใช้ `exec node` เพื่อส่งสัญญาณหยุดให้ NestJS โดยตรง เครื่องมือพัฒนาในเครื่องยังมี 28 audit entries (5 low, 23 moderate) จึงไม่ควรตีความว่าทั้ง dependency tree ไม่มี advisory
+
+`railway.json` กำหนด Dockerfile builder และ healthcheck `/health` (รอสูงสุด 120 วินาที) ไว้ใน repository ตาม [Railway Config as Code](https://docs.railway.com/config-as-code/reference) การกำหนด environment/สิทธิ์ repo และการทดสอบผ่าน URL จริงยังต้องทำบน platform
 
 ผลนี้รวม production mode ในเครื่อง แต่ยังไม่ใช่ผล Deploy บน public server ต้องตั้ง Secret จริง, ยืนยัน proxy/TLS และทดสอบ Authentication กับ URL จริงก่อนยืนยันงาน Deploy
 

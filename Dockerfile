@@ -8,7 +8,7 @@ COPY prisma ./prisma
 RUN npm ci
 
 COPY . .
-RUN npx prisma generate && npm run build
+RUN npx prisma generate && npm run build && npm prune --omit=dev --ignore-scripts
 
 # ---- runtime stage ----
 FROM node:22-slim AS runtime
@@ -23,4 +23,4 @@ COPY --from=build /app/package.json ./package.json
 
 USER node
 EXPOSE 3000
-CMD ["sh", "-c", "npx prisma migrate deploy && node dist/src/main"]
+CMD ["sh", "-c", "./node_modules/.bin/prisma migrate deploy && exec node dist/src/main.js"]
