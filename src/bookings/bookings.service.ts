@@ -154,7 +154,11 @@ export class BookingsService {
     return bookingResponse(booking);
   }
 
-  cancel(bookingId: string, userId: string, status: 'CANCELLED' = 'CANCELLED') {
+  cancel(
+    bookingId: string,
+    userId: string,
+    status: BookingStatus = 'CANCELLED',
+  ) {
     return this.changeStatus(bookingId, status, userId);
   }
 
@@ -171,7 +175,10 @@ export class BookingsService {
     userId?: string,
   ) {
     const updated = await this.writeTransaction(async (tx) => {
-      const where = { id: bookingId, ...(userId ? { userId } : {}) };
+      const where = {
+        id: bookingId,
+        ...(userId !== undefined ? { userId } : {}),
+      };
       const initial = await tx.booking.findFirst({ where });
       if (!initial)
         throw new ApiException(404, 'RESOURCE_NOT_FOUND', 'Booking not found');
@@ -179,6 +186,13 @@ export class BookingsService {
       const booking = await tx.booking.findFirst({ where });
       if (!booking)
         throw new ApiException(404, 'RESOURCE_NOT_FOUND', 'Booking not found');
+      if (userId !== undefined && status !== 'CANCELLED') {
+        throw new ApiException(
+          403,
+          'FORBIDDEN',
+          'Users can only cancel their own bookings',
+        );
+      }
       assertStatusTransition(booking.status, status, booking.checkIn);
       if (booking.status === status) return booking;
 

@@ -178,7 +178,7 @@ describe('Hotel Booking OpenAPI contract', () => {
     expect(schemas.BookingListResponseDto).toHaveProperty('properties.meta');
     expect(schemas.UpdateBookingStatusDto).toHaveProperty(
       'properties.status.enum',
-      ['CANCELLED'],
+      ['PENDING', 'APPROVED', 'CANCELLED', 'PAID'],
     );
     expect(schemas.NotificationResponseDto).toHaveProperty('properties.userId');
     expect(schemas.NotificationResponseDto).not.toHaveProperty(
@@ -223,6 +223,9 @@ describe('Hotel Booking OpenAPI contract', () => {
     expect(
       doc.paths['/api/v1/bookings/{bookingId}/status'].patch!.responses,
     ).toHaveProperty('409');
+    expect(
+      doc.paths['/api/v1/bookings/{bookingId}/status'].patch!.responses,
+    ).toHaveProperty('403');
   });
 
   it('documents owner and Admin Booking filters with optional pagination', () => {

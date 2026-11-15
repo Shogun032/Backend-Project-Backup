@@ -137,6 +137,35 @@ describe('BookingsService - Manage Bookings', () => {
     expect(tx.notification.create).not.toHaveBeenCalled();
   });
 
+  it.each(['PENDING', 'APPROVED', 'PAID'] as const)(
+    'rejects owner status %s with 403 after checking ownership, without writes',
+    async (status) => {
+      const { service, tx } = createMocks();
+      await expect(
+        service.cancel(booking.id, 'user-1', status),
+      ).rejects.toMatchObject({
+        status: 403,
+        response: { code: 'FORBIDDEN' },
+      });
+      expect(tx.booking.findFirst).toHaveBeenNthCalledWith(2, {
+        where: { id: booking.id, userId: 'user-1' },
+      });
+      expect(tx.booking.update).not.toHaveBeenCalled();
+      expect(tx.notification.create).not.toHaveBeenCalled();
+    },
+  );
+
+  it('returns 404 before checking a non-owner requested status', async () => {
+    const { service, tx } = createMocks();
+    tx.booking.findFirst.mockResolvedValue(null);
+    await expect(
+      service.cancel(booking.id, 'user-2', 'APPROVED'),
+    ).rejects.toMatchObject({ status: 404 });
+    expect(tx.$queryRaw).not.toHaveBeenCalled();
+    expect(tx.booking.update).not.toHaveBeenCalled();
+    expect(tx.notification.create).not.toHaveBeenCalled();
+  });
+
   it('rejects cancelling a paid booking', async () => {
     const { service, tx } = createMocks();
     tx.booking.findFirst.mockResolvedValue({ ...booking, status: 'PAID' });

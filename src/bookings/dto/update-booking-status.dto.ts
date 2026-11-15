@@ -1,12 +1,14 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsIn, IsString } from 'class-validator';
+import { BookingStatus } from '@prisma/client';
+import { IsEnum, IsString } from 'class-validator';
 
 export class UpdateBookingStatusDto {
   @IsString()
-  @IsIn(['CANCELLED'])
+  @IsEnum(BookingStatus)
   @ApiProperty({
-    enum: ['CANCELLED'],
-    description: 'Owner cancellation is allowed only before checkIn',
+    enum: BookingStatus,
+    description:
+      'Only CANCELLED is permitted for owners, before checkIn. Other recognized statuses return 403 after ownership verification; unknown values return 400.',
   })
-  status: 'CANCELLED';
+  status: BookingStatus;
 }

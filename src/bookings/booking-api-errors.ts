@@ -27,3 +27,8 @@ export const bookingForbiddenError = {
   code: 'FORBIDDEN',
   message: 'Admin role required',
 };
+export const bookingOwnerForbiddenError = {
+  status: 403,
+  code: 'FORBIDDEN',
+  message: 'Users can only cancel their own bookings',
+};

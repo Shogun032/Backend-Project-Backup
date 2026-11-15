@@ -207,6 +207,45 @@ describe('Bookings integration with Auth and MySQL', () => {
     await request(app.getHttpServer()).get('/api/v1/bookings').expect(401);
   });
 
+  it.each(['PENDING', 'APPROVED', 'PAID'])(
+    'checks ownership before forbidding owner status %s',
+    async (status) => {
+      const booking = await create((await room()).id);
+      for (const token of [otherToken, adminToken]) {
+        await request(app.getHttpServer())
+          .patch(`/api/v1/bookings/${booking.id}/status`)
+          .set('Authorization', `Bearer ${token}`)
+          .send({ status })
+          .expect(404);
+      }
+      const rejected = await request(app.getHttpServer())
+        .patch(`/api/v1/bookings/${booking.id}/status`)
+        .set('Authorization', `Bearer ${ownerToken}`)
+        .send({ status })
+        .expect(403);
+      expect(body<{ error: { code: string } }>(rejected).error.code).toBe(
+        'FORBIDDEN',
+      );
+      expect(
+        await prisma.booking.findUnique({ where: { id: booking.id } }),
+      ).toMatchObject({ status: 'PENDING' });
+      expect(
+        await prisma.notification.count({ where: { bookingId: booking.id } }),
+      ).toBe(1);
+    },
+  );
+
+  it('rejects unknown, missing and non-string owner statuses with 400', async () => {
+    const booking = await create((await room()).id);
+    for (const input of [{ status: 'UNKNOWN' }, {}, { status: 123 }]) {
+      await request(app.getHttpServer())
+        .patch(`/api/v1/bookings/${booking.id}/status`)
+        .set('Authorization', `Bearer ${ownerToken}`)
+        .send(input)
+        .expect(400);
+    }
+  });
+
   it('cancels once under simultaneous requests and reports owner notifications with pagination', async () => {
     const target = await room();
     const booking = await create(target.id);

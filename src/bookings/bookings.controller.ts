@@ -16,6 +16,7 @@ import {
   bookingUnavailableError,
   bookingTransitionError,
   bookingAuthErrors,
+  bookingOwnerForbiddenError,
 } from './booking-api-errors';
 import {
   Body,
@@ -147,11 +148,12 @@ export class BookingsController {
   @ApiOperation({
     summary: 'Cancel my booking',
     description:
-      'PENDING/APPROVED can be cancelled before checkIn (Asia/Bangkok). Repeating CANCELLED returns the same booking without another notification.',
+      "PENDING/APPROVED can be cancelled before checkIn (Asia/Bangkok). Repeating CANCELLED returns the same booking without another notification. Other recognized statuses return 403 after ownership verification; another owner's booking returns 404.",
   })
   @ApiOkResponse({ type: BookingResponseEnvelopeDto })
   @ApiErrorResponses(
     bookingValidationError,
+    bookingOwnerForbiddenError,
     bookingNotFoundError,
     bookingTransitionError,
     ...bookingAuthErrors,

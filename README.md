@@ -296,7 +296,7 @@ curl -i -X PATCH http://localhost:3000/api/v1/admin/bookings/BOOKING_ID/status \
   -d '{"status":"APPROVED"}'
 ```
 
-Create สำเร็จได้ 201 พร้อม Location; ดู/ยกเลิกได้ 200 การใช้ ID ของคนอื่นผ่าน Owner route ได้ 404 และการจองทับซ้อนได้ 409 ROOM_UNAVAILABLE การอนุมัติ/บันทึก PAID ใช้ได้ถึงวันเช็กอินและไม่สร้าง Notification ส่วนการยกเลิกสร้าง BOOKING_CANCELLED ให้เจ้าของเพียงครั้งเดียว
+Create สำเร็จได้ 201 พร้อม Location; ดู/ยกเลิกได้ 200 Owner route ตรวจเจ้าของก่อน: ส่งสถานะที่รู้จักนอกจาก CANCELLED ได้ 403 FORBIDDEN; ค่าสถานะไม่ถูกต้องได้ 400 VALIDATION_ERROR การใช้ ID ของคนอื่นผ่าน Owner route ได้ 404 และการจองทับซ้อนได้ 409 ROOM_UNAVAILABLE การอนุมัติ/บันทึก PAID ใช้ได้ถึงวันเช็กอินและไม่สร้าง Notification ส่วนการยกเลิกสร้าง BOOKING_CANCELLED ให้เจ้าของเพียงครั้งเดียว
 
 ## Security — Sprint 3 (คนที่ 1)
 
@@ -432,8 +432,8 @@ E2E ครอบคลุมจองพร้อมกัน, วันพั�
 
 | การตรวจ | ผล |
 | --- | --- |
-| `npm test -- --runInBand` | 16 suites, 132 tests ผ่าน |
-| `npm run test:e2e -- --runInBand` | 9 suites, 85 tests ผ่าน |
+| `npm test -- --runInBand` | 16 suites, 136 tests ผ่าน |
+| `npm run test:e2e -- --runInBand` | 9 suites, 89 tests ผ่าน |
 | TypeScript, Build และ ESLint | ผ่าน |
 | Production-mode smoke ในเครื่อง | 2 Node processes ใช้ MySQL/Redis แยก; Admin/JWT/Profile/Logout และโควตาร่วมกันผ่าน |
 
