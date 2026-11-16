@@ -18,7 +18,17 @@ describe('Deployment environment validation', () => {
       RATE_LIMIT_STORAGE: 'redis',
       RATE_LIMIT_PREFIX: 'hotel-booking:production:rate-limit',
       TRUST_PROXY: 'false',
+      DEBUG_FORWARDED: 'false',
     });
+  });
+
+  it('enables forwarded-header debugging only when explicitly requested', () => {
+    expect(
+      validateEnvironment({ ...production, DEBUG_FORWARDED: 'true' }),
+    ).toHaveProperty('DEBUG_FORWARDED', 'true');
+    expect(
+      validateEnvironment({ ...production, DEBUG_FORWARDED: false }),
+    ).toHaveProperty('DEBUG_FORWARDED', 'false');
   });
 
   it('keeps local memory storage available for development and mocked tests', () => {
@@ -51,6 +61,9 @@ describe('Deployment environment validation', () => {
     ['NODE_ENV', 'prod'],
     ['TRUST_PROXY', 'true'],
     ['TRUST_PROXY', '1'],
+    ['DEBUG_FORWARDED', 'yes'],
+    ['DEBUG_FORWARDED', '1'],
+    ['DEBUG_FORWARDED', ''],
   ])(
     'rejects invalid %s without including its supplied value',
     (key, value) => {

@@ -169,6 +169,14 @@ export function validateEnvironment(
   }
   const trustProxy = raw.TRUST_PROXY ?? 'false';
   parseTrustProxy(trustProxy);
+  const debugForwarded = raw.DEBUG_FORWARDED ?? 'false';
+  if (
+    typeof debugForwarded !== 'boolean' &&
+    (typeof debugForwarded !== 'string' ||
+      !['true', 'false'].includes(debugForwarded))
+  ) {
+    throw new Error('DEBUG_FORWARDED must be true or false');
+  }
   return {
     ...raw,
     NODE_ENV: nodeEnv,
@@ -177,5 +185,6 @@ export function validateEnvironment(
     RATE_LIMIT_STORAGE: storage,
     RATE_LIMIT_PREFIX: prefix,
     TRUST_PROXY: trustProxy,
+    DEBUG_FORWARDED: String(debugForwarded),
   };
 }

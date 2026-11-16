@@ -666,6 +666,7 @@ Project Description กำหนดให้ใช้ Docker และ Deploy �
 | `RATE_LIMIT_STORAGE` | memory/redis; production เริ่มต้นเป็น redis และปฏิเสธ memory |
 | `RATE_LIMIT_PREFIX` | ค่าเดียวกันทุก instance ใน environment เดียวกัน แยกจาก staging/test; อนุญาตตัวอักษร ตัวเลข `:` `_` `-` สูงสุด 100 ตัวอักษร |
 | `TRUST_PROXY` | ค่าเริ่มต้น false; รับ loopback หรือรายการ IP/CIDR ของ proxy จริง คั่นด้วย comma; ไม่รับ true, hop count, `0.0.0.0/0` หรือ `::/0` |
+| `DEBUG_FORWARDED` | ค่าเริ่มต้น false; true = log `FORWARDED_DEBUG` (`remoteAddress`, `req.ip`, `X-Real-IP`, `X-Forwarded-For`) ต่อคำขอเพื่อตรวจค่าหลัง proxy เท่านั้น ปิดกลับเป็น false หลังตรวจเสร็จ |
 
 การตรวจค่าไม่ใส่ค่าที่กรอกลงในข้อความ Error จึงไม่ควรพิมพ์ `process.env` หรือ Connection URL เพื่อ debug รหัสผ่านที่มีอักขระพิเศษใน URL ต้อง URL-encode ก่อน เก็บฐานข้อมูล/Redis ไว้ในเครือข่ายที่เหมาะสมและกำหนดสิทธิ์ผู้ใช้บริการให้พอดี ใช้ rediss:// เมื่อการเชื่อมต่อ Redis ต้องผ่าน TLS
 
@@ -674,6 +675,10 @@ Project Description กำหนดให้ใช้ Docker และ Deploy �
 เมื่อยังไม่ทราบรูปแบบ Deploy ให้คง `TRUST_PROXY=false` ไว้ หากแอปอยู่หลัง reverse proxy ให้ตั้งเฉพาะ IP/CIDR ของ proxy ที่เข้าถึงแอปจริง เช่น `TRUST_PROXY=10.20.0.2` หรือ loopback เมื่อ proxy เชื่อมผ่าน loopback จริง ตัวอย่างไม่ใช่ค่าที่ใช้ได้กับทุกเซิร์ฟเวอร์
 
 proxy ต้องจัดการ/เขียนทับ Forwarded headers ให้ถูกต้อง และควรจำกัดทางเข้า API ให้รับจาก proxy ที่กำหนด การตั้ง trust proxy เพียงอย่างเดียวไม่ได้ป้องกันการเข้าถึง API โดยตรง ต้องยืนยันเส้นทางเครือข่ายจริงร่วมกับคนที่ 2 แอปใช้ client IP ที่ใกล้กับฝั่งแอปและยังไม่ถูกกำหนดให้เชื่อถือ ไม่เชื่อค่า X-Forwarded-For ฝั่งซ้ายสุดโดยอัตโนมัติ
+
+Rate limit นับตาม `request.ip` จึงต้องตั้ง `TRUST_PROXY` ให้ Express คำนวณ client IP ได้ถูกต้อง มิฉะนั้น key ของตัวนับจะผิดทั้งสองทาง: ถ้า trust ปิดอยู่หลัง proxy ที่ IP เปลี่ยนไปมา `request.ip` จะเป็น address ของ proxy ที่ไม่คงที่ ตัวนับไม่สะสมและคำขอที่เกิน limit (เช่น Booking ครั้งที่ 11) จะได้ 201 แทน 429 ถ้า trust ไม่ครอบคลุมทุก hop `request.ip` จะเป็น IP ของ proxy ซึ่งรวมโควตาของผู้ใช้ทุกคนไว้ใน bucket เดียว
+
+บน Railway ให้ตั้ง `DEBUG_FORWARDED=true` หนึ่งรอบ ยิงคำขอแล้วอ่าน log `FORWARDED_DEBUG` เพื่อดู socket address และโครงสร้าง `X-Forwarded-For` จริง จากนั้นตั้ง `TRUST_PROXY` ให้ครอบคลุม address ทุกชั้นตั้งแต่ socket ของแอปจนถึง client (Express ไล่จากด้านในออกไปจนเจอ address ที่ไม่ได้ trust) edge ของ Railway เขียนทับ `X-Forwarded-For`/`X-Real-IP` สำหรับ traffic ทาง public HTTP และไม่เผยแพร่ CIDR ของ proxy อย่างเป็นทางการ จึงต้องใช้ค่าที่วัดได้จริงและปิด `DEBUG_FORWARDED` กลับเป็น false หลังตรวจเสร็จ
 
 ให้บริการ URL ภายนอกผ่าน HTTPS และตรวจ TLS termination ที่ proxy/แพลตฟอร์มจริง โค้ดยังไม่ได้ใส่ใบรับรองหรือบังคับ HTTPS redirect เพราะยังไม่ได้กำหนดผู้ให้บริการและรูปแบบ proxy
 

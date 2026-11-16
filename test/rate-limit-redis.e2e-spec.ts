@@ -145,6 +145,34 @@ describe('Shared Redis rate limiting across API instances', () => {
     await login(app).set('X-Forwarded-For', '203.0.113.11').expect(401);
   });
 
+  it('keeps one bucket per real client behind a Railway-shaped forwarded chain', async () => {
+    const hop = '100.64.0.7';
+    const app = await start(prefix(), 'loopback,100.64.0.0/10');
+    const chain = (client: string) => `${client}, ${hop}`;
+    for (let i = 0; i < 5; i++) {
+      await login(app)
+        .set('X-Forwarded-For', chain('198.51.100.20'))
+        .expect(401);
+    }
+    await login(app).set('X-Forwarded-For', chain('198.51.100.20')).expect(429);
+    await login(app).set('X-Forwarded-For', chain('198.51.100.21')).expect(401);
+    await login(app)
+      .set('X-Forwarded-For', chain('203.0.113.55, 198.51.100.20'))
+      .expect(429);
+  });
+
+  it('collapses every client into one bucket when the proxy hop is missing from TRUST_PROXY', async () => {
+    const app = await start(prefix(), 'loopback');
+    for (let i = 0; i < 5; i++) {
+      await login(app)
+        .set('X-Forwarded-For', '198.51.100.20, 100.64.0.7')
+        .expect(401);
+    }
+    await login(app)
+      .set('X-Forwarded-For', '198.51.100.21, 100.64.0.7')
+      .expect(429);
+  });
+
   it('expires a Redis block so requests can resume without flushing Redis', async () => {
     const app = await start(prefix());
     const storage = new RedisThrottlerStorage(app.get(RedisService), prefix());
